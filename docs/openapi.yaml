@@ -1,0 +1,581 @@
+openapi: 3.0.3
+info:
+  title: db_myacademia API
+  description: >
+    RESTful API for RP Kigali College's Short Courses & Partner/Donor
+    Projects Registry. All lookup tables (departments, donors, sectors,
+    etc.) and access-control tables (users, staff, roles) follow the
+    same generic CRUD contract documented once under "Generic Entity
+    Pattern" and then listed per-table below.
+  version: 1.0.0
+servers:
+  - url: http://localhost:5000/api/v1
+tags:
+  - name: Auth
+  - name: Short Courses
+  - name: Projects
+  - name: Lookups
+  - name: Users & Staff
+  - name: Approvals
+  - name: Audit Log
+  - name: Uploads
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ApiSuccess:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        message: { type: string }
+        data: {}
+        meta:
+          type: object
+          properties:
+            page: { type: integer }
+            limit: { type: integer }
+            total: { type: integer }
+            totalPages: { type: integer }
+    ApiError:
+      type: object
+      properties:
+        success: { type: boolean, example: false }
+        message: { type: string }
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field: { type: string }
+              message: { type: string }
+              value: {}
+    RegisterRequest:
+      type: object
+      required: [full_name, email, password, role_id]
+      properties:
+        full_name: { type: string, example: "Jane Uwase" }
+        email: { type: string, format: email }
+        password: { type: string, format: password, example: "Secret123" }
+        role_id: { type: integer, example: 3 }
+        department_id: { type: integer, nullable: true }
+        phone: { type: string, nullable: true }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, format: password }
+    ShortCourse:
+      type: object
+      properties:
+        course_id: { type: integer }
+        course_title: { type: string }
+        department_id: { type: integer }
+        category_id: { type: integer, nullable: true }
+        duration_days: { type: integer, nullable: true }
+        duration_hours: { type: integer, nullable: true }
+        level: { type: string, enum: [Beginner, Intermediate, Advanced] }
+        delivery_mode_id: { type: integer, nullable: true }
+        language: { type: string, nullable: true }
+        target_audience: { type: string, nullable: true }
+        coordinator_id: { type: integer, nullable: true }
+        certification_id: { type: integer, nullable: true }
+        accreditation_body_id: { type: integer, nullable: true }
+        participants_female: { type: integer, default: 0 }
+        participants_male: { type: integer, default: 0 }
+        total_participants: { type: integer, readOnly: true, description: "generated column" }
+        total_certified: { type: integer, default: 0 }
+        fee_per_participant: { type: number, format: decimal, default: 0 }
+        expected_revenue: { type: number, readOnly: true, description: "generated column" }
+        status: { type: string, enum: [Planning, Active, Completed, Cancelled] }
+        academic_year_id: { type: integer, nullable: true }
+    Project:
+      type: object
+      properties:
+        project_id: { type: integer }
+        project_title: { type: string }
+        donor_id: { type: integer, nullable: true }
+        funding_type_id: { type: integer, nullable: true }
+        sector_id: { type: integer, nullable: true }
+        project_coordinator_id: { type: integer, nullable: true }
+        start_date: { type: string, format: date, nullable: true }
+        end_date: { type: string, format: date, nullable: true }
+        duration_months: { type: integer, readOnly: true, description: "generated column" }
+        total_budget_usd: { type: number, nullable: true }
+        total_budget_rwf: { type: number, nullable: true }
+        college_contribution_rwf: { type: number, default: 0 }
+        donor_contribution_usd: { type: number, default: 0 }
+        geographic_scope: { type: string, nullable: true }
+        beneficiary_type_id: { type: integer, nullable: true }
+        no_direct_beneficiaries: { type: integer, nullable: true }
+        key_performance_indicator: { type: string, nullable: true }
+        achievement_rate_pct: { type: number, nullable: true }
+        remarks: { type: string, nullable: true }
+        overall_status: { type: string, enum: [Pipeline, Active, Completed, Suspended, Cancelled] }
+        academic_year_id: { type: integer, nullable: true }
+
+  parameters:
+    idParam:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer, minimum: 1 }
+    pageParam:
+      name: page
+      in: query
+      schema: { type: integer, default: 1 }
+    limitParam:
+      name: limit
+      in: query
+      schema: { type: integer, default: 20, maximum: 100 }
+    sortParam:
+      name: sort
+      in: query
+      schema: { type: string }
+      description: Field to sort by (whitelisted per entity)
+    orderParam:
+      name: order
+      in: query
+      schema: { type: string, enum: [asc, desc], default: desc }
+    searchParam:
+      name: search
+      in: query
+      schema: { type: string }
+      description: Case-insensitive LIKE search across the entity's searchable fields
+
+security:
+  - bearerAuth: []
+
+paths:
+  # =================================================================
+  # AUTH
+  # =================================================================
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a new user
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterRequest' }
+      responses:
+        '201': { description: User created, content: { application/json: { schema: { $ref: '#/components/schemas/ApiSuccess' } } } }
+        '409': { description: Email already exists }
+        '422': { description: Validation failed }
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login and receive access/refresh JWTs
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200': { description: Login successful }
+        '401': { description: Invalid credentials }
+
+  /auth/refresh-token:
+    post:
+      tags: [Auth]
+      summary: Exchange a refresh token for a new access token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties: { refreshToken: { type: string } }
+      responses:
+        '200': { description: New access token issued }
+        '401': { description: Invalid or revoked refresh token }
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Log out (blacklists the current access token)
+      responses:
+        '200': { description: Logged out }
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Get the authenticated user's profile
+      responses:
+        '200': { description: Profile returned }
+    put:
+      tags: [Auth]
+      summary: Update the authenticated user's profile
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                full_name: { type: string }
+                phone: { type: string }
+      responses:
+        '200': { description: Profile updated }
+
+  /auth/change-password:
+    post:
+      tags: [Auth]
+      summary: Change password (requires current password)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              properties:
+                currentPassword: { type: string }
+                newPassword: { type: string }
+      responses:
+        '200': { description: Password changed }
+        '401': { description: Current password incorrect }
+
+  /auth/forgot-password:
+    post:
+      tags: [Auth]
+      summary: Request a password reset token
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties: { email: { type: string, format: email } }
+      responses:
+        '200': { description: Generic confirmation message (does not reveal if email exists) }
+
+  /auth/reset-password:
+    post:
+      tags: [Auth]
+      summary: Reset password using a token from /forgot-password
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, newPassword]
+              properties:
+                token: { type: string }
+                newPassword: { type: string }
+      responses:
+        '200': { description: Password reset }
+        '400': { description: Token invalid or expired }
+
+  # =================================================================
+  # SHORT COURSES
+  # =================================================================
+  /short-courses:
+    get:
+      tags: [Short Courses]
+      summary: List short courses (paginated, searchable, filterable, sortable)
+      parameters:
+        - $ref: '#/components/parameters/pageParam'
+        - $ref: '#/components/parameters/limitParam'
+        - $ref: '#/components/parameters/sortParam'
+        - $ref: '#/components/parameters/orderParam'
+        - $ref: '#/components/parameters/searchParam'
+        - name: department_id
+          in: query
+          schema: { type: integer }
+        - name: status
+          in: query
+          schema: { type: string, enum: [Planning, Active, Completed, Cancelled] }
+      responses:
+        '200': { description: List of short courses }
+    post:
+      tags: [Short Courses]
+      summary: Create a short course
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ShortCourse' }
+      responses:
+        '201': { description: Created }
+        '422': { description: Validation failed }
+
+  /short-courses/summary:
+    get:
+      tags: [Short Courses]
+      summary: Aggregate counts/participants/revenue grouped by status
+      responses:
+        '200': { description: Summary }
+
+  /short-courses/{id}:
+    get:
+      tags: [Short Courses]
+      parameters: [ { $ref: '#/components/parameters/idParam' } ]
+      responses:
+        '200': { description: Short course detail (joined with department/category/etc.) }
+        '404': { description: Not found }
+    put:
+      tags: [Short Courses]
+      parameters: [ { $ref: '#/components/parameters/idParam' } ]
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ShortCourse' }
+      responses:
+        '200': { description: Updated }
+    delete:
+      tags: [Short Courses]
+      parameters: [ { $ref: '#/components/parameters/idParam' } ]
+      responses:
+        '200': { description: Deleted }
+
+  # =================================================================
+  # PROJECTS
+  # =================================================================
+  /projects:
+    get:
+      tags: [Projects]
+      parameters:
+        - $ref: '#/components/parameters/pageParam'
+        - $ref: '#/components/parameters/limitParam'
+        - $ref: '#/components/parameters/sortParam'
+        - $ref: '#/components/parameters/orderParam'
+        - $ref: '#/components/parameters/searchParam'
+      responses:
+        '200': { description: List of projects }
+    post:
+      tags: [Projects]
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Project' }
+      responses:
+        '201': { description: Created }
+
+  /projects/summary:
+    get:
+      tags: [Projects]
+      summary: Aggregate counts/budgets grouped by overall_status
+      responses:
+        '200': { description: Summary }
+
+  /projects/{id}:
+    get:
+      tags: [Projects]
+      parameters: [ { $ref: '#/components/parameters/idParam' } ]
+      responses:
+        '200': { description: Project detail }
+    put:
+      tags: [Projects]
+      parameters: [ { $ref: '#/components/parameters/idParam' } ]
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Project' }
+      responses:
+        '200': { description: Updated }
+    delete:
+      tags: [Projects]
+      parameters: [ { $ref: '#/components/parameters/idParam' } ]
+      responses:
+        '200': { description: Deleted }
+
+  /projects/{id}/full:
+    get:
+      tags: [Projects]
+      summary: Project enriched with joined lookups plus target departments & partners (mirrors v_projects_full)
+      parameters: [ { $ref: '#/components/parameters/idParam' } ]
+      responses:
+        '200': { description: Full project detail }
+
+  /projects/{id}/departments:
+    get:
+      tags: [Projects]
+      summary: List a project's target departments
+      parameters: [ { $ref: '#/components/parameters/idParam' } ]
+      responses: { '200': { description: OK } }
+    post:
+      tags: [Projects]
+      summary: Link a department to a project
+      parameters: [ { $ref: '#/components/parameters/idParam' } ]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [department_id]
+              properties: { department_id: { type: integer } }
+      responses: { '201': { description: Linked } }
+
+  /projects/{id}/departments/{departmentId}:
+    delete:
+      tags: [Projects]
+      summary: Unlink a department from a project
+      parameters:
+        - $ref: '#/components/parameters/idParam'
+        - name: departmentId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses: { '200': { description: Unlinked } }
+
+  /projects/{id}/partners:
+    get:
+      tags: [Projects]
+      summary: List a project's partner organisations
+      parameters: [ { $ref: '#/components/parameters/idParam' } ]
+      responses: { '200': { description: OK } }
+    post:
+      tags: [Projects]
+      summary: Link a partner organisation to a project
+      parameters: [ { $ref: '#/components/parameters/idParam' } ]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [partner_id]
+              properties: { partner_id: { type: integer } }
+      responses: { '201': { description: Linked } }
+
+  /projects/{id}/partners/{partnerId}:
+    delete:
+      tags: [Projects]
+      summary: Unlink a partner organisation from a project
+      parameters:
+        - $ref: '#/components/parameters/idParam'
+        - name: partnerId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses: { '200': { description: Unlinked } }
+
+  # =================================================================
+  # GENERIC LOOKUP TABLES
+  # Each of these follows the identical CRUD contract:
+  #   GET    /{resource}            list (pagination/search/filter/sort)
+  #   GET    /{resource}/{id}       retrieve one
+  #   POST   /{resource}            create   (Administrator/CDSM only)
+  #   PUT    /{resource}/{id}       update   (Administrator/CDSM only)
+  #   DELETE /{resource}/{id}       delete   (Administrator/CDSM only)
+  # =================================================================
+  /departments:
+    get: { tags: [Lookups], summary: "List departments", responses: { '200': { description: OK } } }
+    post: { tags: [Lookups], summary: "Create department", responses: { '201': { description: Created } } }
+  /departments/{id}:
+    get: { tags: [Lookups], parameters: [ { $ref: '#/components/parameters/idParam' } ], responses: { '200': { description: OK } } }
+    put: { tags: [Lookups], parameters: [ { $ref: '#/components/parameters/idParam' } ], responses: { '200': { description: Updated } } }
+    delete: { tags: [Lookups], parameters: [ { $ref: '#/components/parameters/idParam' } ], responses: { '200': { description: Deleted } } }
+
+  /academic-years:
+    get: { tags: [Lookups], responses: { '200': { description: OK } } }
+    post: { tags: [Lookups], responses: { '201': { description: Created } } }
+  /course-categories:
+    get: { tags: [Lookups], responses: { '200': { description: OK } } }
+    post: { tags: [Lookups], responses: { '201': { description: Created } } }
+  /delivery-modes:
+    get: { tags: [Lookups], responses: { '200': { description: OK } } }
+    post: { tags: [Lookups], responses: { '201': { description: Created } } }
+  /certification-types:
+    get: { tags: [Lookups], responses: { '200': { description: OK } } }
+    post: { tags: [Lookups], responses: { '201': { description: Created } } }
+  /accreditation-bodies:
+    get: { tags: [Lookups], responses: { '200': { description: OK } } }
+    post: { tags: [Lookups], responses: { '201': { description: Created } } }
+  /donors:
+    get: { tags: [Lookups], responses: { '200': { description: OK } } }
+    post: { tags: [Lookups], responses: { '201': { description: Created } } }
+  /partner-organisations:
+    get: { tags: [Lookups], responses: { '200': { description: OK } } }
+    post: { tags: [Lookups], responses: { '201': { description: Created } } }
+  /funding-types:
+    get: { tags: [Lookups], responses: { '200': { description: OK } } }
+    post: { tags: [Lookups], responses: { '201': { description: Created } } }
+  /sectors:
+    get: { tags: [Lookups], responses: { '200': { description: OK } } }
+    post: { tags: [Lookups], responses: { '201': { description: Created } } }
+  /beneficiary-types:
+    get: { tags: [Lookups], responses: { '200': { description: OK } } }
+    post: { tags: [Lookups], responses: { '201': { description: Created } } }
+  /roles:
+    get: { tags: [Lookups], responses: { '200': { description: OK } } }
+    post: { tags: [Lookups], responses: { '201': { description: Created } } }
+
+  # =================================================================
+  # USERS & STAFF
+  # =================================================================
+  /users:
+    get:
+      tags: [Users & Staff]
+      parameters:
+        - $ref: '#/components/parameters/pageParam'
+        - $ref: '#/components/parameters/limitParam'
+        - $ref: '#/components/parameters/searchParam'
+      responses: { '200': { description: OK } }
+    post:
+      tags: [Users & Staff]
+      summary: Create a user (Administrator only; use /auth/register for self-signup)
+      responses: { '201': { description: Created } }
+  /users/{id}:
+    get: { tags: [Users & Staff], parameters: [ { $ref: '#/components/parameters/idParam' } ], responses: { '200': { description: OK } } }
+    put: { tags: [Users & Staff], parameters: [ { $ref: '#/components/parameters/idParam' } ], responses: { '200': { description: Updated } } }
+    delete: { tags: [Users & Staff], parameters: [ { $ref: '#/components/parameters/idParam' } ], responses: { '200': { description: Deleted } } }
+
+  /staff:
+    get: { tags: [Users & Staff], responses: { '200': { description: OK } } }
+    post: { tags: [Users & Staff], responses: { '201': { description: Created } } }
+  /staff/{id}:
+    get: { tags: [Users & Staff], parameters: [ { $ref: '#/components/parameters/idParam' } ], responses: { '200': { description: OK } } }
+    put: { tags: [Users & Staff], parameters: [ { $ref: '#/components/parameters/idParam' } ], responses: { '200': { description: Updated } } }
+    delete: { tags: [Users & Staff], parameters: [ { $ref: '#/components/parameters/idParam' } ], responses: { '200': { description: Deleted } } }
+
+  # =================================================================
+  # APPROVALS & AUDIT LOG
+  # =================================================================
+  /approvals:
+    get: { tags: [Approvals], responses: { '200': { description: OK } } }
+    post: { tags: [Approvals], summary: "Request an approval for a short course or project", responses: { '201': { description: Created } } }
+  /approvals/{id}:
+    get: { tags: [Approvals], parameters: [ { $ref: '#/components/parameters/idParam' } ], responses: { '200': { description: OK } } }
+    put: { tags: [Approvals], summary: "Record a decision (Approved/Rejected/Returned)", parameters: [ { $ref: '#/components/parameters/idParam' } ], responses: { '200': { description: Updated } } }
+
+  /audit-log:
+    get:
+      tags: [Audit Log]
+      summary: List audit trail entries (read-only; written internally by other endpoints)
+      parameters:
+        - $ref: '#/components/parameters/pageParam'
+        - $ref: '#/components/parameters/limitParam'
+        - name: table_name
+          in: query
+          schema: { type: string }
+      responses: { '200': { description: OK } }
+  /audit-log/{id}:
+    get: { tags: [Audit Log], parameters: [ { $ref: '#/components/parameters/idParam' } ], responses: { '200': { description: OK } } }
+
+  # =================================================================
+  # UPLOADS
+  # =================================================================
+  /uploads:
+    post:
+      tags: [Uploads]
+      summary: Upload a supporting file (image, PDF, xlsx, docx)
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        '201': { description: File uploaded }
+        '400': { description: Unsupported file type or no file provided }

@@ -1,0 +1,515 @@
+{
+  "info": {
+    "name": "db_myacademia API",
+    "description": "RP Kigali College - Short Courses & Partner/Donor Projects Registry API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000/api/v1" },
+    { "key": "accessToken", "value": "" },
+    { "key": "refreshToken", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/auth/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Jane Uwase\",\n  \"email\": \"jane.uwase@rpkigali.rw\",\n  \"password\": \"Secret123\",\n  \"role_id\": 3,\n  \"department_id\": 5,\n  \"phone\": \"+250788123456\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.data) {",
+                  "  pm.collectionVariables.set('accessToken', json.data.accessToken);",
+                  "  pm.collectionVariables.set('refreshToken', json.data.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@rpkigali.rw\",\n  \"password\": \"YourPassword123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/auth/refresh-token",
+            "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}" }
+          }
+        },
+        {
+          "name": "Get Profile (me)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/auth/me"
+          }
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/auth/me",
+            "body": { "mode": "raw", "raw": "{\n  \"full_name\": \"Jane Uwase Updated\",\n  \"phone\": \"+250788000000\"\n}" }
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/auth/change-password",
+            "body": { "mode": "raw", "raw": "{\n  \"currentPassword\": \"Secret123\",\n  \"newPassword\": \"NewSecret456\"\n}" }
+          }
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/auth/forgot-password",
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"jane.uwase@rpkigali.rw\"\n}" }
+          }
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/auth/reset-password",
+            "body": { "mode": "raw", "raw": "{\n  \"token\": \"<token-from-forgot-password>\",\n  \"newPassword\": \"NewSecret456\"\n}" }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/auth/logout"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Short Courses",
+      "item": [
+        {
+          "name": "List (paginated/search/filter/sort)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/short-courses?page=1&limit=10&search=ICT&status=Completed&sort=course_title&order=asc",
+              "host": ["{{baseUrl}}"],
+              "path": ["short-courses"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" },
+                { "key": "search", "value": "ICT" },
+                { "key": "status", "value": "Completed" },
+                { "key": "sort", "value": "course_title" },
+                { "key": "order", "value": "asc" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Summary (dashboard)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/short-courses/summary"
+          }
+        },
+        {
+          "name": "Get by ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/short-courses/1"
+          }
+        },
+        {
+          "name": "Create",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/short-courses",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"course_title\": \"Welding Fundamentals\",\n  \"department_id\": 3,\n  \"category_id\": 4,\n  \"duration_days\": 30,\n  \"duration_hours\": 240,\n  \"level\": \"Beginner\",\n  \"delivery_mode_id\": 1,\n  \"language\": \"English\",\n  \"participants_female\": 5,\n  \"participants_male\": 15,\n  \"total_certified\": 0,\n  \"fee_per_participant\": 50000,\n  \"status\": \"Planning\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Update",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/short-courses/1",
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"Active\",\n  \"total_certified\": 10\n}" }
+          }
+        },
+        {
+          "name": "Delete",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/short-courses/1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Projects",
+      "item": [
+        {
+          "name": "List",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/projects?page=1&limit=10"
+          }
+        },
+        {
+          "name": "Summary (dashboard)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/projects/summary"
+          }
+        },
+        {
+          "name": "Get by ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/projects/1"
+          }
+        },
+        {
+          "name": "Get Full (joined + departments + partners)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/projects/1/full"
+          }
+        },
+        {
+          "name": "Create",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/projects",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"project_title\": \"Digital Skills for Rural Youth\",\n  \"donor_id\": 1,\n  \"funding_type_id\": 1,\n  \"sector_id\": 3,\n  \"start_date\": \"2026-09-01\",\n  \"end_date\": \"2027-08-31\",\n  \"total_budget_usd\": 50000,\n  \"overall_status\": \"Pipeline\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Update",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/projects/1",
+            "body": { "mode": "raw", "raw": "{\n  \"overall_status\": \"Active\",\n  \"achievement_rate_pct\": 25.5\n}" }
+          }
+        },
+        {
+          "name": "Delete",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/projects/1"
+          }
+        },
+        {
+          "name": "List Target Departments",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/projects/1/departments"
+          }
+        },
+        {
+          "name": "Link Department",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/projects/1/departments",
+            "body": { "mode": "raw", "raw": "{\n  \"department_id\": 5\n}" }
+          }
+        },
+        {
+          "name": "Unlink Department",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/projects/1/departments/5"
+          }
+        },
+        {
+          "name": "List Partners",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/projects/1/partners"
+          }
+        },
+        {
+          "name": "Link Partner",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/projects/1/partners",
+            "body": { "mode": "raw", "raw": "{\n  \"partner_id\": 1\n}" }
+          }
+        },
+        {
+          "name": "Unlink Partner",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/projects/1/partners/1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Lookup Tables",
+      "item": [
+        {
+          "name": "Departments - List",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/departments"
+          }
+        },
+        {
+          "name": "Departments - Create",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/departments",
+            "body": { "mode": "raw", "raw": "{\n  \"department_name\": \"Renewable Energy\",\n  \"department_code\": \"REN\"\n}" }
+          }
+        },
+        {
+          "name": "Departments - Update",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/departments/1",
+            "body": { "mode": "raw", "raw": "{\n  \"department_name\": \"Automobile Technology (Updated)\"\n}" }
+          }
+        },
+        {
+          "name": "Departments - Delete",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/departments/9"
+          }
+        },
+        {
+          "name": "Donors - List",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/donors"
+          }
+        },
+        {
+          "name": "Sectors - List",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/sectors"
+          }
+        },
+        {
+          "name": "Academic Years - List",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/academic-years"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users & Staff",
+      "item": [
+        {
+          "name": "Users - List",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/users?page=1&limit=10"
+          }
+        },
+        {
+          "name": "Users - Get by ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/users/1"
+          }
+        },
+        {
+          "name": "Users - Update",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/users/1",
+            "body": { "mode": "raw", "raw": "{\n  \"is_active\": true\n}" }
+          }
+        },
+        {
+          "name": "Staff - List",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/staff"
+          }
+        },
+        {
+          "name": "Staff - Create",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/staff",
+            "body": { "mode": "raw", "raw": "{\n  \"full_name\": \"NIYONZIMA Eric\",\n  \"department_id\": 5\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Approvals & Audit Log",
+      "item": [
+        {
+          "name": "Approvals - List Pending",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/approvals?decision=Pending"
+          }
+        },
+        {
+          "name": "Approvals - Create Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/approvals",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"entity_type\": \"short_course\",\n  \"entity_id\": 1,\n  \"requested_by\": 3,\n  \"role_required\": 1\n}"
+            }
+          }
+        },
+        {
+          "name": "Approvals - Record Decision",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/approvals/1",
+            "body": { "mode": "raw", "raw": "{\n  \"decision\": \"Approved\",\n  \"reviewer_id\": 1,\n  \"comments\": \"Looks good\"\n}" }
+          }
+        },
+        {
+          "name": "Audit Log - List",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/audit-log?table_name=short_courses"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Uploads",
+      "item": [
+        {
+          "name": "Upload File",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/uploads",
+            "body": {
+              "mode": "formdata",
+              "formdata": [{ "key": "file", "type": "file", "src": "" }]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
