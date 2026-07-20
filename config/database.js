@@ -24,6 +24,8 @@ const pool = mysql.createPool({
  * Always uses parameterized queries -> prevents SQL injection.
  */
 async function query(sql, params = []) {
+  //console.log(sql);
+  //console.log(params);
   const [rows] = await pool.execute(sql, params);
   return rows;
 }

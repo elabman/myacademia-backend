@@ -100,7 +100,12 @@ class BaseRepository {
       ${whereSql}
       ORDER BY ${orderBy}
       LIMIT ? OFFSET ?`;
-    const rows = await query(dataSql, [...params, limit, offset]);
+      //console.log(dataSql);
+      //console.log(params);
+     // console.log([...params,limit,offset]);
+     const _limit = String(limit);
+     const _offset = String(offset);
+    const rows = await query(dataSql, [...params, _limit, _offset]);
 
     const countSql = `SELECT COUNT(*) AS total FROM ${this.table} t ${joinClauses} ${whereSql}`;
     const countRows = await query(countSql, params);
