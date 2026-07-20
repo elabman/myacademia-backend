@@ -74,6 +74,12 @@ router.use(
   })
 );
 
+router.use(
+  'roles',
+  buildEntityRouter(entities.roles, {
+    writeRoles:[ROLES.ADMINISTRATOR, ROLES.PRINCIPAL],
+  })
+)
 // ---------------------------------------------------------------
 // Audit log - read only, written internally by other controllers
 // ---------------------------------------------------------------
