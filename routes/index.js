@@ -6,6 +6,7 @@ const ROLES = require('../utils/roles');
 const authRoutes = require('./authRoutes');
 const shortCourseRoutes = require('./shortCourseRoutes');
 const projectRoutes = require('./projectRoutes');
+const mouRoutes = require('./mouRoutes');
 const uploadRoutes = require('./uploadRoutes');
 
 const router = express.Router();
@@ -13,6 +14,7 @@ const router = express.Router();
 router.use('/auth', authRoutes);
 router.use('/short-courses', shortCourseRoutes);
 router.use('/projects', projectRoutes);
+router.use('/mou-agreements', mouRoutes);
 router.use('/uploads', uploadRoutes);
 
 // ---------------------------------------------------------------
@@ -24,6 +26,8 @@ const lookupTables = [
   'certification_types', 'accreditation_bodies', 'donors',
   'partner_organisations', 'funding_types', 'sectors', 'beneficiary_types',
   'roles',
+  // MoU registry lookups (added for Sample_MoU_Database.xlsx)
+  'partner_types', 'collaboration_areas',
 ];
 lookupTables.forEach((name) => {
   router.use(
@@ -62,6 +66,12 @@ router.use(
     writeRoles: [ROLES.PRINCIPAL, ROLES.HOD, ROLES.CDSM, ROLES.ADMINISTRATOR],
   })
 );
+router.use(
+  '/mou-collaboration-links',
+  buildEntityRouter(entities.mou_collaboration_links, {
+    writeRoles: [ROLES.PRINCIPAL, ROLES.HOD, ROLES.CDSM, ROLES.ADMINISTRATOR],
+  })
+);
 
 // ---------------------------------------------------------------
 // Approval workflow
@@ -74,12 +84,6 @@ router.use(
   })
 );
 
-router.use(
-  'roles',
-  buildEntityRouter(entities.roles, {
-    writeRoles:[ROLES.ADMINISTRATOR, ROLES.PRINCIPAL],
-  })
-)
 // ---------------------------------------------------------------
 // Audit log - read only, written internally by other controllers
 // ---------------------------------------------------------------

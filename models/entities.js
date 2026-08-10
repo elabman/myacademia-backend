@@ -159,6 +159,29 @@ const entities = {
     sortable: ['role_id', 'role_name'],
   },
 
+  // ---- MoU registry lookups (added for Sample_MoU_Database.xlsx) ----
+  partner_types: {
+    table: 'partner_types',
+    pk: 'partner_type_id',
+    fillable: ['type_name'],
+    required: ['type_name'],
+    unique: ['type_name'],
+    searchable: ['type_name'],
+    filterable: [],
+    sortable: ['partner_type_id', 'type_name'],
+  },
+
+  collaboration_areas: {
+    table: 'collaboration_areas',
+    pk: 'collaboration_area_id',
+    fillable: ['area_name'],
+    required: ['area_name'],
+    unique: ['area_name'],
+    searchable: ['area_name'],
+    filterable: [],
+    sortable: ['collaboration_area_id', 'area_name'],
+  },
+
   // ---------------------------------------------------------------
   // Access control
   // ---------------------------------------------------------------
@@ -348,6 +371,65 @@ const entities = {
       { table: 'roles', alias: 'r', on: 'r.role_id = t.role_required', select: 'r.role_name AS role_required_name' },
       { table: 'users', alias: 'ru', on: 'ru.user_id = t.requested_by', select: 'ru.full_name AS requested_by_name' },
     ],
+  },
+
+  // ---------------------------------------------------------------
+  // MoU (Memorandum of Understanding) registry
+  // (added for Sample_MoU_Database.xlsx - see database/mou_schema.sql)
+  // ---------------------------------------------------------------
+  mou_agreements: {
+    table: 'mou_agreements',
+    pk: 'mou_id',
+    fillable: [
+      'sn', 'partner_id', 'partner_type_id', 'country',
+      'contact_person', 'contact_position', 'contact_email', 'contact_phone',
+      'date_signed', 'effective_date', 'expiry_date', 'duration_label',
+      'purpose_objectives', 'responsible_department_id', 'institutional_focal_person_id',
+      'status', 'renewal_required', 'last_review_date', 'key_deliverables',
+      'progress_status', 'next_action', 'remarks', 'academic_year_id', 'created_by',
+    ],
+    required: ['partner_id'],
+    enum: {
+      status: ['Active', 'Expired', 'Terminated', 'Under Review', 'Pending Signature'],
+      progress_status: ['On Track', 'Delayed', 'At Risk', 'Completed', 'Not Started'],
+    },
+    foreignKeys: [
+      { field: 'partner_id', refTable: 'partner_organisations', refPk: 'partner_id', allowNull: false },
+      { field: 'partner_type_id', refTable: 'partner_types', refPk: 'partner_type_id', allowNull: true },
+      { field: 'responsible_department_id', refTable: 'departments', refPk: 'department_id', allowNull: true },
+      { field: 'institutional_focal_person_id', refTable: 'staff', refPk: 'staff_id', allowNull: true },
+      { field: 'academic_year_id', refTable: 'academic_years', refPk: 'academic_year_id', allowNull: true },
+      { field: 'created_by', refTable: 'users', refPk: 'user_id', allowNull: true },
+    ],
+    searchable: ['contact_person', 'contact_email', 'purpose_objectives', 'key_deliverables', 'country'],
+    filterable: ['partner_id', 'partner_type_id', 'responsible_department_id', 'status', 'progress_status', 'academic_year_id'],
+    sortable: ['mou_id', 'date_signed', 'effective_date', 'expiry_date', 'status', 'created_at'],
+    joins: [
+      { table: 'partner_organisations', alias: 'po', on: 'po.partner_id = t.partner_id', select: 'po.partner_name' },
+      { table: 'partner_types', alias: 'pt', on: 'pt.partner_type_id = t.partner_type_id', select: 'pt.type_name AS partner_type' },
+      { table: 'departments', alias: 'd', on: 'd.department_id = t.responsible_department_id', select: 'd.department_name AS responsible_department' },
+      { table: 'staff', alias: 'st', on: 'st.staff_id = t.institutional_focal_person_id', select: 'st.full_name AS institutional_focal_person' },
+      { table: 'academic_years', alias: 'ay', on: 'ay.academic_year_id = t.academic_year_id', select: 'ay.year_label AS academic_year' },
+    ],
+    generated: ['duration_months'],
+    checks: [
+      { message: 'expiry_date must be on/after effective_date' },
+    ],
+  },
+
+  mou_collaboration_links: {
+    table: 'mou_collaboration_links',
+    pk: null,
+    compositeKey: ['mou_id', 'collaboration_area_id'],
+    fillable: ['mou_id', 'collaboration_area_id'],
+    required: ['mou_id', 'collaboration_area_id'],
+    foreignKeys: [
+      { field: 'mou_id', refTable: 'mou_agreements', refPk: 'mou_id', allowNull: false },
+      { field: 'collaboration_area_id', refTable: 'collaboration_areas', refPk: 'collaboration_area_id', allowNull: false },
+    ],
+    searchable: [],
+    filterable: ['mou_id', 'collaboration_area_id'],
+    sortable: ['mou_id', 'collaboration_area_id'],
   },
 
   audit_log: {

@@ -13,6 +13,7 @@ Projects Registry**, built on Node.js, Express, and MySQL (mysql2/promise).
 | Many-to-many | `project_departments`, `project_partners` |
 | Workflow | `approvals`, `audit_log` |
 | Auth support (added) | `password_resets`, `token_blacklist` |
+| MoU registry (added, see §9) | `mou_agreements`, `mou_collaboration_links`, `partner_types`, `collaboration_areas` |
 
 Key relationships:
 - `users.role_id -> roles`, `users.department_id -> departments`
@@ -52,7 +53,7 @@ project/
 ├── services/       # authService, auditService (business logic, DB transactions)
 ├── utils/          # ApiError, catchAsync, JWT helpers, query-feature builder
 ├── uploads/         # uploaded files (served at /uploads)
-├── database/       # schema.sql + db:init script
+├── database/       # schema.sql + mou_schema.sql (add-on) + db:init / db:init-mou scripts
 ├── docs/           # openapi.yaml + postman_collection.json
 ├── app.js          # Express app (middleware, routes, error handling)
 └── server.js       # boots the HTTP server + DB connectivity check
@@ -60,9 +61,10 @@ project/
 
 ## 4. How the generic CRUD engine works
 
-Rather than hand-writing near-identical controllers/routes for all 20
+Rather than hand-writing near-identical controllers/routes for all
 tables, every lookup table (and `users`, `staff`, `approvals`, `audit_log`,
-`project_departments`, `project_partners`) is described **once** in
+`project_departments`, `project_partners`, `mou_collaboration_links`,
+`partner_types`, `collaboration_areas`) is described **once** in
 `models/entities.js`: primary key, fillable columns, required fields,
 foreign keys to validate, unique constraints, searchable/filterable/
 sortable columns, and any joins to enrich responses.
@@ -75,12 +77,12 @@ that config to provide, for every entity:
 - `PUT /resource/:id` — partial update, same validation
 - `DELETE /resource/:id` — 404 if missing; MySQL FK constraints prevent deleting referenced rows (mapped to a 409)
 
-`short_courses` and `projects` have dedicated controllers
-(`controllers/shortCourseController.js`, `controllers/projectController.js`)
-that reuse the generic engine but add:
-- app-level enforcement of the `total_certified <= total_participants` and `end_date >= start_date` CHECK constraints (clean 422 instead of a raw SQL error)
+`short_courses`, `projects`, and `mou_agreements` have dedicated controllers
+(`controllers/shortCourseController.js`, `controllers/projectController.js`,
+`controllers/mouController.js`) that reuse the generic engine but add:
+- app-level enforcement of CHECK constraints (`total_certified <= total_participants`, `end_date >= start_date`, `expiry_date >= effective_date`) — a clean 422 instead of a raw SQL error
 - `/summary` dashboard aggregation endpoints
-- `/projects/:id/full` (mirrors the `v_projects_full` view) and nested `/projects/:id/departments`, `/projects/:id/partners` many-to-many endpoints
+- `/projects/:id/full` and `/mou-agreements/:id/full` (mirroring the `v_projects_full` / `v_mou_agreements_full` views) plus their nested many-to-many endpoints
 
 ## 5. Authentication
 
@@ -104,8 +106,9 @@ Role IDs (from the seeded `roles` table, see `utils/roles.js`):
 
 Write access (`POST/PUT/DELETE`) is restricted per resource in the route
 files (e.g. lookup tables: Administrator/CDSM; `users`: Administrator
-only). All `GET` endpoints require a valid JWT. Adjust the role arrays in
-`routes/*.js` to match your institution's actual policy.
+only; `mou_agreements`: Principal/HoD/CDSM/Administrator, matching the
+`projects` policy). All `GET` endpoints require a valid JWT. Adjust the
+role arrays in `routes/*.js` to match your institution's actual policy.
 
 ## 7. Security checklist
 
@@ -119,5 +122,51 @@ only). All `GET` endpoints require a valid JWT. Adjust the role arrays in
 ## 8. Notes / assumptions
 
 - The uploaded schema already used the name `db_myacademia`; `database/schema.sql` keeps that name and only **adds** `password_resets` and `token_blacklist` (needed for the auth flows requested) without touching any existing table, FK, index, or seed data.
-- `audit_log` is exposed **read-only** through the API; rows are written internally whenever an audited controller (`users`, `short_courses`, `projects`, `approvals`) completes a create/update/delete.
+- `audit_log` is exposed **read-only** through the API; rows are written internally whenever an audited controller (`users`, `short_courses`, `projects`, `mou_agreements`, `approvals`) completes a create/update/delete.
 - Seed user passwords in `schema.sql` are placeholders (`$2y$12$REPLACE_WITH_REAL_HASH`) — replace with real bcrypt hashes (or register fresh users via `/auth/register`) before using them to log in.
+
+## 9. MoU registry add-on (Sample_MoU_Database.xlsx)
+
+Built from the first sheet ("MoU Master Database") of the uploaded
+workbook. Shipped as a **separate migration**, `database/mou_schema.sql`,
+so it can be imported into the database created in step 2 without
+re-running the full schema:
+
+```bash
+npm run db:init-mou     # runs database/mou_schema.sql against db_myacademia
+# or directly:
+mysql -u root -p db_myacademia < database/mou_schema.sql
+```
+
+New tables (none of the original tables were modified):
+
+| Table | Purpose |
+|---|---|
+| `partner_types` | Lookup: Private Company, Government Institution, NGO, University, Development Partner, International Organization |
+| `collaboration_areas` | Lookup: Internship, Research, Staff Exchange, Curriculum Development, etc. |
+| `mou_agreements` | One row per MoU: signing/effective/expiry dates, contact snapshot, purpose, status, progress, next action. Reuses the existing `partner_organisations`, `departments`, `staff`, `academic_years`, and `users` tables via FK rather than duplicating that data. |
+| `mou_collaboration_links` | Many-to-many between `mou_agreements` and `collaboration_areas`, since the sheet's "Area(s) of Collaboration" column holds multiple semicolon-separated values (e.g. "Internship; Research; Staff Exchange") — mirrors the existing `project_departments` pattern. |
+
+`mou_agreements.duration_months` is a **generated column** computed from
+`effective_date`/`expiry_date`, and a CHECK constraint (also enforced at
+the app layer, `controllers/mouController.js`) guarantees
+`expiry_date >= effective_date`. A matching view, `v_mou_agreements_full`,
+mirrors the style of `v_projects_full` / `v_short_courses_full`.
+
+### New API endpoints
+
+| Method | Endpoint | Notes |
+|---|---|---|
+| GET | `/mou-agreements` | paginated/search/filter/sort |
+| GET | `/mou-agreements/summary` | counts by status + expiring-within-90-days count |
+| GET | `/mou-agreements/expiring?days=90` | active MoUs expiring soon, for renewal follow-up |
+| GET | `/mou-agreements/:id` | joined with partner/type/department/focal person/academic year |
+| GET | `/mou-agreements/:id/full` | above + linked collaboration areas |
+| POST / PUT / DELETE | `/mou-agreements[/:id]` | HoD/CDSM/Principal/Administrator write; date-order validated |
+| GET / POST | `/mou-agreements/:id/collaboration-areas` | list / link a collaboration area |
+| DELETE | `/mou-agreements/:id/collaboration-areas/:areaId` | unlink |
+| GET / POST / PUT / DELETE | `/partner-types`, `/collaboration-areas` | generic lookup CRUD (Administrator/CDSM write) |
+| GET / POST / PUT / DELETE | `/mou-collaboration-links` | direct M2M table access, in addition to the nested routes above |
+
+All are documented in `docs/openapi.yaml` (tag "MoU Agreements") and
+included in `docs/postman_collection.json` (folder "MoU Agreements").

@@ -14,6 +14,7 @@ tags:
   - name: Auth
   - name: Short Courses
   - name: Projects
+  - name: MoU Agreements
   - name: Lookups
   - name: Users & Staff
   - name: Approvals
@@ -116,6 +117,34 @@ components:
         achievement_rate_pct: { type: number, nullable: true }
         remarks: { type: string, nullable: true }
         overall_status: { type: string, enum: [Pipeline, Active, Completed, Suspended, Cancelled] }
+        academic_year_id: { type: integer, nullable: true }
+    MouAgreement:
+      type: object
+      properties:
+        mou_id: { type: integer }
+        sn: { type: integer, nullable: true }
+        partner_id: { type: integer }
+        partner_type_id: { type: integer, nullable: true }
+        country: { type: string, nullable: true }
+        contact_person: { type: string, nullable: true }
+        contact_position: { type: string, nullable: true }
+        contact_email: { type: string, format: email, nullable: true }
+        contact_phone: { type: string, nullable: true }
+        date_signed: { type: string, format: date, nullable: true }
+        effective_date: { type: string, format: date, nullable: true }
+        expiry_date: { type: string, format: date, nullable: true }
+        duration_label: { type: string, nullable: true, example: "3 Years" }
+        duration_months: { type: integer, readOnly: true, description: "generated column" }
+        purpose_objectives: { type: string, nullable: true }
+        responsible_department_id: { type: integer, nullable: true }
+        institutional_focal_person_id: { type: integer, nullable: true }
+        status: { type: string, enum: [Active, Expired, Terminated, "Under Review", "Pending Signature"] }
+        renewal_required: { type: boolean, default: false }
+        last_review_date: { type: string, format: date, nullable: true }
+        key_deliverables: { type: string, nullable: true }
+        progress_status: { type: string, enum: ["On Track", Delayed, "At Risk", Completed, "Not Started"], nullable: true }
+        next_action: { type: string, nullable: true }
+        remarks: { type: string, nullable: true }
         academic_year_id: { type: integer, nullable: true }
 
   parameters:
@@ -460,6 +489,120 @@ paths:
       responses: { '200': { description: Unlinked } }
 
   # =================================================================
+  # MoU AGREEMENTS (added for Sample_MoU_Database.xlsx)
+  # =================================================================
+  /mou-agreements:
+    get:
+      tags: [MoU Agreements]
+      summary: List MoU agreements (paginated, searchable, filterable, sortable)
+      parameters:
+        - $ref: '#/components/parameters/pageParam'
+        - $ref: '#/components/parameters/limitParam'
+        - $ref: '#/components/parameters/sortParam'
+        - $ref: '#/components/parameters/orderParam'
+        - $ref: '#/components/parameters/searchParam'
+        - name: status
+          in: query
+          schema: { type: string, enum: [Active, Expired, Terminated, "Under Review", "Pending Signature"] }
+        - name: partner_id
+          in: query
+          schema: { type: integer }
+        - name: responsible_department_id
+          in: query
+          schema: { type: integer }
+      responses:
+        '200': { description: List of MoU agreements }
+    post:
+      tags: [MoU Agreements]
+      summary: Create an MoU agreement
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MouAgreement' }
+      responses:
+        '201': { description: Created }
+        '422': { description: "Validation failed (e.g. expiry_date before effective_date)" }
+
+  /mou-agreements/summary:
+    get:
+      tags: [MoU Agreements]
+      summary: Aggregate counts grouped by status, plus count expiring within 90 days
+      responses:
+        '200': { description: Summary }
+
+  /mou-agreements/expiring:
+    get:
+      tags: [MoU Agreements]
+      summary: List active MoUs expiring within N days (renewal follow-up)
+      parameters:
+        - name: days
+          in: query
+          schema: { type: integer, default: 90 }
+      responses:
+        '200': { description: List of expiring MoUs, ordered by expiry date ascending }
+
+  /mou-agreements/{id}:
+    get:
+      tags: [MoU Agreements]
+      parameters: [ { $ref: '#/components/parameters/idParam' } ]
+      responses:
+        '200': { description: MoU agreement detail (joined with partner/department/focal person/etc.) }
+        '404': { description: Not found }
+    put:
+      tags: [MoU Agreements]
+      parameters: [ { $ref: '#/components/parameters/idParam' } ]
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MouAgreement' }
+      responses:
+        '200': { description: Updated }
+    delete:
+      tags: [MoU Agreements]
+      parameters: [ { $ref: '#/components/parameters/idParam' } ]
+      responses:
+        '200': { description: Deleted }
+
+  /mou-agreements/{id}/full:
+    get:
+      tags: [MoU Agreements]
+      summary: MoU enriched with joined lookups plus linked collaboration areas (mirrors v_mou_agreements_full)
+      parameters: [ { $ref: '#/components/parameters/idParam' } ]
+      responses:
+        '200': { description: Full MoU detail }
+
+  /mou-agreements/{id}/collaboration-areas:
+    get:
+      tags: [MoU Agreements]
+      summary: List an MoU's linked collaboration areas
+      parameters: [ { $ref: '#/components/parameters/idParam' } ]
+      responses: { '200': { description: OK } }
+    post:
+      tags: [MoU Agreements]
+      summary: Link a collaboration area to an MoU
+      parameters: [ { $ref: '#/components/parameters/idParam' } ]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [collaboration_area_id]
+              properties: { collaboration_area_id: { type: integer } }
+      responses: { '201': { description: Linked } }
+
+  /mou-agreements/{id}/collaboration-areas/{areaId}:
+    delete:
+      tags: [MoU Agreements]
+      summary: Unlink a collaboration area from an MoU
+      parameters:
+        - $ref: '#/components/parameters/idParam'
+        - name: areaId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses: { '200': { description: Unlinked } }
+
+  # =================================================================
   # GENERIC LOOKUP TABLES
   # Each of these follows the identical CRUD contract:
   #   GET    /{resource}            list (pagination/search/filter/sort)
@@ -508,6 +651,12 @@ paths:
     post: { tags: [Lookups], responses: { '201': { description: Created } } }
   /roles:
     get: { tags: [Lookups], responses: { '200': { description: OK } } }
+    post: { tags: [Lookups], responses: { '201': { description: Created } } }
+  /partner-types:
+    get: { tags: [Lookups], summary: "List MoU partner types", responses: { '200': { description: OK } } }
+    post: { tags: [Lookups], responses: { '201': { description: Created } } }
+  /collaboration-areas:
+    get: { tags: [Lookups], summary: "List MoU collaboration areas", responses: { '200': { description: OK } } }
     post: { tags: [Lookups], responses: { '201': { description: Created } } }
 
   # =================================================================
