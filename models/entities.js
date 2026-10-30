@@ -432,6 +432,57 @@ const entities = {
     sortable: ['mou_id', 'collaboration_area_id'],
   },
 
+  // ---------------------------------------------------------------
+  // Public reviews (see database/review_schema.sql)
+  // ---------------------------------------------------------------
+  services: {
+    table: 'services',
+    pk: 'service_id',
+    fillable: ['name', 'description'],
+    required: ['name'],
+    unique: ['name'],
+    searchable: ['name', 'description'],
+    filterable: [],
+    sortable: ['service_id', 'name', 'created_at'],
+  },
+
+  // M2M: a service can be offered by several departments
+  service_departments: {
+    table: 'service_departments',
+    pk: null,
+    compositeKey: ['service_id', 'department_id'],
+    fillable: ['service_id', 'department_id'],
+    required: ['service_id', 'department_id'],
+    foreignKeys: [
+      { field: 'service_id', refTable: 'services', refPk: 'service_id', allowNull: false },
+      { field: 'department_id', refTable: 'departments', refPk: 'department_id', allowNull: false },
+    ],
+    searchable: [],
+    filterable: ['service_id', 'department_id'],
+    sortable: ['service_id', 'department_id'],
+  },
+
+  reviews: {
+    table: 'reviews',
+    pk: 'review_id',
+    fillable: ['staff_id', 'service_id', 'rating', 'comment', 'reviewer_name', 'client_hash'],
+    required: ['staff_id', 'service_id', 'rating'],
+    foreignKeys: [
+      { field: 'staff_id', refTable: 'staff', refPk: 'staff_id', allowNull: false },
+      { field: 'service_id', refTable: 'services', refPk: 'service_id', allowNull: false },
+    ],
+    searchable: ['comment', 'reviewer_name'],
+    filterable: ['staff_id', 'service_id', 'rating', 'created_at'],
+    sortable: ['review_id', 'rating', 'created_at'],
+    joins: [
+      { table: 'staff', alias: 'st', on: 'st.staff_id = t.staff_id', select: 'st.full_name AS staff_name' },
+      { table: 'services', alias: 'sv', on: 'sv.service_id = t.service_id', select: 'sv.name AS service_name' },
+      { table: 'departments', alias: 'd', on: 'd.department_id = st.department_id', select: 'd.department_name' },
+    ],
+    sensitive: ['client_hash'],
+    readOnly: true, // created only through POST /public/reviews
+  },
+
   audit_log: {
     table: 'audit_log',
     pk: 'log_id',

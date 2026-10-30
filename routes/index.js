@@ -8,6 +8,9 @@ const shortCourseRoutes = require('./shortCourseRoutes');
 const projectRoutes = require('./projectRoutes');
 const mouRoutes = require('./mouRoutes');
 const uploadRoutes = require('./uploadRoutes');
+const serviceRoutes = require('./serviceRoutes');
+const reviewRoutes = require('./reviewRoutes');
+const publicReviewRoutes = require('./publicReviewRoutes');
 
 const router = express.Router();
 
@@ -16,6 +19,10 @@ router.use('/short-courses', shortCourseRoutes);
 router.use('/projects', projectRoutes);
 router.use('/mou-agreements', mouRoutes);
 router.use('/uploads', uploadRoutes);
+router.use('/services', serviceRoutes);
+router.use('/reviews', reviewRoutes);
+// Public (no auth) - mobile review page reached by scanning a staff Data Matrix
+router.use('/public/reviews', publicReviewRoutes);
 
 // ---------------------------------------------------------------
 // Lookup / reference tables - writable by Administrator & CDSM only

@@ -19,6 +19,8 @@ tags:
   - name: Users & Staff
   - name: Approvals
   - name: Audit Log
+  - name: Services
+  - name: Reviews
   - name: Uploads
 
 components:
@@ -710,6 +712,74 @@ paths:
       responses: { '200': { description: OK } }
   /audit-log/{id}:
     get: { tags: [Audit Log], parameters: [ { $ref: '#/components/parameters/idParam' } ], responses: { '200': { description: OK } } }
+
+  # =================================================================
+  # SERVICES & PUBLIC REVIEWS
+  # =================================================================
+  /services:
+    get: { tags: [Services], summary: "List services with their departments", responses: { '200': { description: OK } } }
+    post:
+      tags: [Services]
+      summary: "Create a service. department_ids links it to many departments"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                description: { type: string, nullable: true }
+                department_ids: { type: array, items: { type: integer } }
+      responses: { '201': { description: Created } }
+  /services/{id}:
+    get: { tags: [Services], parameters: [ { $ref: '#/components/parameters/idParam' } ], responses: { '200': { description: OK } } }
+    put: { tags: [Services], summary: "Update; department_ids (when present) replaces the department links", parameters: [ { $ref: '#/components/parameters/idParam' } ], responses: { '200': { description: Updated } } }
+    delete: { tags: [Services], summary: "Delete (409 when the service already has reviews)", parameters: [ { $ref: '#/components/parameters/idParam' } ], responses: { '200': { description: Deleted } } }
+
+  /reviews:
+    get:
+      tags: [Reviews]
+      summary: List submitted public reviews (Principal, Director of Planning, HoD, CDSM, Administrator)
+      parameters:
+        - $ref: '#/components/parameters/pageParam'
+        - $ref: '#/components/parameters/limitParam'
+        - { name: staff_id, in: query, schema: { type: integer } }
+        - { name: service_id, in: query, schema: { type: integer } }
+        - { name: rating, in: query, schema: { type: integer, minimum: 1, maximum: 5 } }
+        - { name: created_at_gte, in: query, schema: { type: string, format: date } }
+        - { name: created_at_lte, in: query, schema: { type: string, format: date } }
+      responses: { '200': { description: OK } }
+  /reviews/{id}:
+    get: { tags: [Reviews], parameters: [ { $ref: '#/components/parameters/idParam' } ], responses: { '200': { description: OK } } }
+
+  /public/reviews/staff/{staffId}:
+    get:
+      tags: [Reviews]
+      summary: "PUBLIC (no auth): staff member + services of their department"
+      security: []
+      parameters:
+        - { name: staffId, in: path, required: true, schema: { type: integer } }
+      responses: { '200': { description: OK }, '404': { description: Invalid review link } }
+  /public/reviews:
+    post:
+      tags: [Reviews]
+      summary: "PUBLIC (no auth): submit a review. Rate limited"
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [staff_id, service_id, rating]
+              properties:
+                staff_id: { type: integer }
+                service_id: { type: integer }
+                rating: { type: integer, minimum: 1, maximum: 5, description: "1 Very Poor, 2 Poor, 3 Okay, 4 Good, 5 Excellent" }
+                comment: { type: string, maxLength: 1000, nullable: true }
+                reviewer_name: { type: string, maxLength: 100, nullable: true }
+      responses: { '201': { description: Created }, '400': { description: Service not offered by the staff member }, '422': { description: Validation failed }, '429': { description: Too many requests } }
 
   # =================================================================
   # UPLOADS
