@@ -45,23 +45,6 @@ const changePassword = catchAsync(async (req, res) => {
   sendSuccess(res, { message: 'Password changed successfully' });
 });
 
-const forgotPassword = catchAsync(async (req, res) => {
-  const resetToken = await authService.forgotPassword(req.body.email);
-  // Generic message regardless of whether the email exists.
-  sendSuccess(res, {
-    message: 'If an account with that email exists, a password reset link has been sent',
-    // resetToken is only ever returned here because no email provider is
-    // wired up in this environment; in production this line is removed
-    // and the raw token is emailed to the user instead.
-    data: process.env.NODE_ENV !== 'production' ? { resetToken } : undefined,
-  });
-});
-
-const resetPassword = catchAsync(async (req, res) => {
-  await authService.resetPassword({ token: req.body.token, newPassword: req.body.newPassword });
-  sendSuccess(res, { message: 'Password has been reset successfully' });
-});
-
 module.exports = {
   register,
   login,
@@ -70,6 +53,4 @@ module.exports = {
   me,
   updateProfile,
   changePassword,
-  forgotPassword,
-  resetPassword,
 };

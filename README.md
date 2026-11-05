@@ -194,3 +194,11 @@ npm run db:init-reviews   # adds services, service_departments, reviews (safe to
 Behind a reverse proxy set `app.set('trust proxy', 1)` in `app.js` so the rate
 limits see each visitor's real IP instead of the proxy's.
 
+## 11. Changing a password
+
+A password can only be changed by a **logged-in** user, who proves they own the account with their current password:
+`POST /auth/change-password {currentPassword, newPassword}` (new password: at least 8 characters and one number).
+There is no email or "forgot password" flow, and the former `/auth/forgot-password` and `/auth/reset-password`
+endpoints were removed (the first returned the reset token in its response outside production). The
+`password_resets` table is left in the schema but is no longer used.
+

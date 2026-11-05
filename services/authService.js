@@ -1,6 +1,5 @@
 const bcrypt = require('bcrypt');
-const crypto = require('crypto');
-const { query, withTransaction } = require('../config/database');
+const { query } = require('../config/database');
 const config = require('../config/config');
 const ApiError = require('../utils/ApiError');
 const { signAccessToken, signRefreshToken, verifyRefreshToken } = require('../utils/jwt');
@@ -95,43 +94,6 @@ async function changePassword({ userId, currentPassword, newPassword }) {
   await query(`UPDATE users SET password_hash = ? WHERE user_id = ?`, [newHash, userId]);
 }
 
-async function forgotPassword(email) {
-  const user = await findUserByEmail(email);
-  // Always respond the same way whether or not the user exists (avoid
-  // leaking which emails are registered) - caller returns a generic message.
-  if (!user) return null;
-
-  const rawToken = crypto.randomBytes(32).toString('hex');
-  const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
-  const expiresAt = new Date(Date.now() + config.resetTokenExpiresMin * 60 * 1000);
-
-  await query(
-    `INSERT INTO password_resets (user_id, token_hash, expires_at) VALUES (?, ?, ?)`,
-    [user.user_id, tokenHash, expiresAt]
-  );
-
-  // In production this raw token would be emailed to the user, never
-  // returned in the API response. Returned here only so the reset flow
-  // is testable end-to-end without an email provider configured.
-  return rawToken;
-}
-
-async function resetPassword({ token, newPassword }) {
-  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-  const rows = await query(
-    `SELECT * FROM password_resets WHERE token_hash = ? AND used = 0 AND expires_at > NOW() LIMIT 1`,
-    [tokenHash]
-  );
-  const resetRecord = rows[0];
-  if (!resetRecord) throw ApiError.badRequest('Reset token is invalid or has expired');
-
-  await withTransaction(async (trx) => {
-    const newHash = await bcrypt.hash(newPassword, config.bcrypt.saltRounds);
-    await trx.query(`UPDATE users SET password_hash = ? WHERE user_id = ?`, [newHash, resetRecord.user_id]);
-    await trx.query(`UPDATE password_resets SET used = 1 WHERE reset_id = ?`, [resetRecord.reset_id]);
-  });
-}
-
 async function updateProfile(userId, { full_name, phone }) {
   const fields = [];
   const params = [];
@@ -151,7 +113,5 @@ module.exports = {
   refresh,
   logout,
   changePassword,
-  forgotPassword,
-  resetPassword,
   updateProfile,
 };

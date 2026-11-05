@@ -12,6 +12,9 @@ const { notFound, errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
 
+// Behind nginx: use the forwarded client IP so rate limits are per visitor, not per proxy.
+app.set('trust proxy', 1);
+
 // ---- Security & core middleware ----
 app.use(helmet());
 app.use(

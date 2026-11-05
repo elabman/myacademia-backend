@@ -18,19 +18,6 @@ const loginValidators = [
   body('password').notEmpty().withMessage('Password is required'),
 ];
 
-const forgotPasswordValidators = [
-  body('email').isEmail().withMessage('A valid email is required').normalizeEmail(),
-];
-
-const resetPasswordValidators = [
-  body('token').notEmpty().withMessage('Reset token is required'),
-  body('newPassword')
-    .isLength({ min: 8 })
-    .withMessage('Password must be at least 8 characters')
-    .matches(/\d/)
-    .withMessage('Password must contain at least one number'),
-];
-
 const changePasswordValidators = [
   body('currentPassword').notEmpty().withMessage('currentPassword is required'),
   body('newPassword')
@@ -52,8 +39,6 @@ const updateProfileValidators = [
 module.exports = {
   registerValidators,
   loginValidators,
-  forgotPasswordValidators,
-  resetPasswordValidators,
   changePasswordValidators,
   refreshValidators,
   updateProfileValidators,

@@ -275,39 +275,6 @@ paths:
         '200': { description: Password changed }
         '401': { description: Current password incorrect }
 
-  /auth/forgot-password:
-    post:
-      tags: [Auth]
-      summary: Request a password reset token
-      security: []
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [email]
-              properties: { email: { type: string, format: email } }
-      responses:
-        '200': { description: Generic confirmation message (does not reveal if email exists) }
-
-  /auth/reset-password:
-    post:
-      tags: [Auth]
-      summary: Reset password using a token from /forgot-password
-      security: []
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [token, newPassword]
-              properties:
-                token: { type: string }
-                newPassword: { type: string }
-      responses:
-        '200': { description: Password reset }
-        '400': { description: Token invalid or expired }
-
   # =================================================================
   # SHORT COURSES
   # =================================================================
