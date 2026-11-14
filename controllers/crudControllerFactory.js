@@ -34,7 +34,7 @@ function createCrudController(entity, options = {}) {
   });
 
   const create = catchAsync(async (req, res) => {
-    const created = await repo.create(req.body);
+    const created = await repo.create(req.body, { userId: req.user?.id });
     if (audited) {
       await auditService.record({
         userId: req.user?.id || null,

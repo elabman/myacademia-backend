@@ -152,20 +152,52 @@ class BaseRepository {
   // ---------------------------------------------------------------
   // CREATE
   // ---------------------------------------------------------------
-  async create(body) {
+  /**
+   * @param {object} body
+   * @param {{ userId?: number }} [context]  who is creating the record
+   *
+   * Entities may declare (models/entities.js):
+   *   createdByField - column filled with the logged-in user's id when the client did not send one
+   *   serialField    - running number ("sn"): when not sent, the record gets MAX(serial) + 1
+   */
+  async create(body, context = {}) {
     const data = this.pickFillable(body);
+    const { createdByField, serialField } = this.entity;
+
+    if (createdByField && context.userId && (data[createdByField] === undefined || data[createdByField] === null)) {
+      data[createdByField] = context.userId;
+    }
+    const needsSerial = Boolean(serialField) && (data[serialField] === undefined || data[serialField] === null);
+    if (needsSerial) delete data[serialField];
+
     await this.validateForeignKeys(data);
     await this.validateUnique(data);
 
-    const columns = Object.keys(data);
-    if (columns.length === 0) {
+    if (Object.keys(data).length === 0 && !needsSerial) {
       throw ApiError.badRequest('No valid fields provided');
     }
-    const placeholders = columns.map(() => '?').join(', ');
-    const values = columns.map((c) => data[c]);
 
-    const sql = `INSERT INTO ${this.table} (${columns.join(', ')}) VALUES (${placeholders})`;
-    const result = await query(sql, values);
+    const insert = async (run) => {
+      const columns = Object.keys(data);
+      const placeholders = columns.map(() => '?').join(', ');
+      const sql = `INSERT INTO ${this.table} (${columns.join(', ')}) VALUES (${placeholders})`;
+      return run(sql, columns.map((c) => data[c]));
+    };
+
+    let result;
+    if (needsSerial) {
+      // The lock makes two people saving at the same moment wait for each other,
+      // so they cannot be given the same number.
+      result = await withTransaction(async (tx) => {
+        const [row] = await tx.query(
+          `SELECT COALESCE(MAX(${serialField}), 0) + 1 AS next FROM ${this.table} FOR UPDATE`
+        );
+        data[serialField] = Number(row.next);
+        return insert((sql, values) => tx.query(sql, values));
+      });
+    } else {
+      result = await insert((sql, values) => query(sql, values));
+    }
 
     if (this.pk) {
       return this.findById(result.insertId);

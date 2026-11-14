@@ -14,7 +14,47 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 const mysql = require('mysql2/promise');
 
+// Tables whose records carry a running number (sn). Old rows created before the backend
+// numbered them automatically have none; this gives them one, after the highest existing number.
+const SERIAL_TABLES = [
+  ['short_courses', 'course_id'],
+  ['projects', 'project_id'],
+  ['mou_agreements', 'mou_id'],
+];
+
 const COUNTED = ['users', 'staff', 'departments', 'projects', 'short_courses', 'donors', 'partner_organisations', 'mou_agreements', 'forms', 'form_responses', 'reviews'];
+
+/** How many records in each table have no serial number yet (tables that do not exist are skipped). */
+async function countMissingSerials(connection, database) {
+  const missing = {};
+  for (const [table] of SERIAL_TABLES) {
+    const [columns] = await connection.query(
+      `SELECT COLUMN_NAME AS name FROM information_schema.columns WHERE table_schema = ? AND table_name = ? AND column_name = 'sn'`,
+      [database, table]
+    );
+    if (columns.length === 0) continue;
+    const [[row]] = await connection.query(`SELECT COUNT(*) AS n FROM \`${table}\` WHERE sn IS NULL`);
+    missing[table] = Number(row.n);
+  }
+  return missing;
+}
+
+/** Numbers records that have no sn, oldest first. Existing numbers are never changed. */
+async function numberExistingRecords(connection, database) {
+  const missing = await countMissingSerials(connection, database);
+  for (const [table, pk] of SERIAL_TABLES) {
+    if (!missing[table]) continue;
+    const [updatedAt] = await connection.query(
+      `SELECT 1 FROM information_schema.columns WHERE table_schema = ? AND table_name = ? AND column_name = 'updated_at'`,
+      [database, table]
+    );
+    // updated_at = updated_at keeps the "last changed" time as it was (numbering is not an edit)
+    const keepTime = updatedAt.length ? ', updated_at = updated_at' : '';
+    await connection.query(`SET @n := (SELECT COALESCE(MAX(sn), 0) FROM \`${table}\`)`);
+    await connection.query(`UPDATE \`${table}\` SET sn = (@n := @n + 1)${keepTime} WHERE sn IS NULL ORDER BY \`${pk}\``);
+    console.log(`Numbered ${missing[table]} existing ${table} record(s) that had no sn.`);
+  }
+}
 
 async function run() {
   const dryRun = process.argv.includes('--dry-run');
@@ -64,6 +104,12 @@ async function run() {
   if (!has.has('v_projects_full')) {
     console.log(`${dryRun ? 'Would run' : 'Will run'}: create the missing project view v_projects_full`);
   }
+  const missingSerials = await countMissingSerials(connection, database);
+  Object.entries(missingSerials)
+    .filter(([, n]) => n > 0)
+    .forEach(([table, n]) =>
+      console.log(`${dryRun ? 'Would run' : 'Will run'}: give a serial number (sn) to ${n} ${table} record(s) that have none`)
+    );
 
   if (dryRun) {
     console.log('Dry run: nothing was changed.');
@@ -86,6 +132,8 @@ async function run() {
       console.log('\n== Created view v_projects_full');
     }
   }
+
+  await numberExistingRecords(connection, database);
 
   const after = await countRows();
   const lost = Object.keys(before).filter((table) => after[table] < before[table]);

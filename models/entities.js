@@ -237,6 +237,8 @@ const entities = {
       'fee_per_participant', 'status', 'academic_year_id', 'created_by',
     ],
     required: ['course_title', 'department_id'],
+    serialField: 'sn',
+    createdByField: 'created_by',
     integers: { sn: 2147483647, duration_days: 65535, duration_hours: 65535, participants_female: 65535, participants_male: 65535, total_certified: 65535 },
     enum: {
       level: ['Beginner', 'Intermediate', 'Advanced'],
@@ -285,6 +287,8 @@ const entities = {
       'academic_year_id', 'created_by',
     ],
     required: ['project_title'],
+    serialField: 'sn',
+    createdByField: 'created_by',
     integers: { sn: 2147483647, no_direct_beneficiaries: 2147483647 },
     enum: {
       overall_status: ['Pipeline', 'Active', 'Completed', 'Suspended', 'Cancelled'],
@@ -391,6 +395,8 @@ const entities = {
       'progress_status', 'next_action', 'remarks', 'academic_year_id', 'created_by',
     ],
     required: ['partner_id'],
+    serialField: 'sn',
+    createdByField: 'created_by',
     integers: { sn: 2147483647 },
     booleans: ['renewal_required'],
     enum: {

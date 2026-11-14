@@ -291,3 +291,15 @@ which only creates missing tables, columns and views. In this order, on the serv
 mysql -u <user> -p db_myacademia < ~/db_myacademia-YYYY-MM-DD.sql
 ```
 
+## 15. Serial numbers (`sn`) and "created by" are filled automatically
+
+When a **short course, project or MoU** is created, the backend now sets two columns itself:
+- `sn` (the running "No."): the next number, `MAX(sn) + 1`, calculated inside a locked transaction so two people saving at the
+  same moment cannot get the same number. A client may still send its own `sn`, which is kept.
+- `created_by`: the id of the logged-in user (unless the client sends one).
+
+Records created before this change that have no `sn` are numbered once by `npm run db:migrate` (oldest first, after the
+highest existing number). It only touches rows where `sn` is empty, never changes an existing number, and leaves the
+"last updated" time as it was. Running it again changes nothing. The settings live in `models/entities.js`
+(`serialField`, `createdByField`) and the logic in `models/BaseRepository.js`.
+
