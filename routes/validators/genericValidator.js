@@ -28,16 +28,26 @@ function fieldRule(field, isRequired, entity) {
     chain = chain.isEmail().withMessage('A valid email address is required').normalizeEmail();
   } else if (PHONE_FIELDS.test(field)) {
     chain = chain.matches(/^\+?[0-9\s\-()]{7,20}$/).withMessage('A valid phone number is required');
-  } else if (NUMERIC_ID_FIELDS.test(field)) {
+  } else if (NUMERIC_ID_FIELDS.test(field) || (entity.foreignKeys || []).some((fk) => fk.field === field)) {
     chain = chain.isInt({ min: 1 }).withMessage(`${field} must be a positive integer`).toInt();
   } else if (DATE_FIELDS.test(field)) {
     chain = chain.isISO8601().withMessage(`${field} must be a valid date (YYYY-MM-DD)`).toDate();
   } else if (DECIMAL_FIELDS.test(field)) {
     chain = chain.isFloat({ min: 0 }).withMessage(`${field} must be a non-negative number`).toFloat();
-  } else if (field === 'is_active') {
-    chain = chain.isBoolean().withMessage('is_active must be true/false').toBoolean();
+  } else if (field === 'is_active' || (entity.booleans || []).includes(field)) {
+    chain = chain.isBoolean().withMessage(`${field} must be true/false`).toBoolean();
+  } else if (entity.integers && entity.integers[field] !== undefined) {
+    // whole-number columns (counts, days, serial numbers) declared in models/entities.js
+    const max = entity.integers[field];
+    chain = chain.isInt({ min: 0, max }).withMessage(`${field} must be a whole number between 0 and ${max}`).toInt();
   } else {
-    chain = chain.isString().trim().isLength({ min: 1, max: 500 }).withMessage(`${field} must be a valid string`);
+    chain = chain
+      .isString()
+      .withMessage(`${field} must be text`)
+      .bail()
+      .trim()
+      .isLength({ min: 1, max: 500 })
+      .withMessage(`${field} must be between 1 and 500 characters`);
   }
 
   return chain;

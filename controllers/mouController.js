@@ -29,14 +29,14 @@ async function assertDateOrder(mouId, body) {
   }
 }
 
-const create = catchAsync(async (req, res) => {
+const create = catchAsync(async (req, res, next) => {
   await assertDateOrder(null, req.body);
-  return base.create(req, res);
+  return base.create(req, res, next);
 });
 
-const update = catchAsync(async (req, res) => {
+const update = catchAsync(async (req, res, next) => {
   await assertDateOrder(req.params.id, req.body);
-  return base.update(req, res);
+  return base.update(req, res, next);
 });
 
 /** GET /mou-agreements/:id/full - enriched record + linked collaboration areas (mirrors v_mou_agreements_full) */

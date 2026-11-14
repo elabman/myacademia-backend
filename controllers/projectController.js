@@ -25,14 +25,14 @@ async function assertDateOrder(projectId, body) {
   }
 }
 
-const create = catchAsync(async (req, res) => {
+const create = catchAsync(async (req, res, next) => {
   await assertDateOrder(null, req.body);
-  return base.create(req, res);
+  return base.create(req, res, next);
 });
 
-const update = catchAsync(async (req, res) => {
+const update = catchAsync(async (req, res, next) => {
   await assertDateOrder(req.params.id, req.body);
-  return base.update(req, res);
+  return base.update(req, res, next);
 });
 
 /** GET /projects/:id/full - project enriched with joined data + M2M lists (mirrors v_projects_full) */

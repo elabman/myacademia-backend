@@ -37,14 +37,14 @@ async function assertCertifiedWithinParticipants(courseId, body) {
   }
 }
 
-const create = catchAsync(async (req, res) => {
+const create = catchAsync(async (req, res, next) => {
   await assertCertifiedWithinParticipants(null, req.body);
-  return base.create(req, res);
+  return base.create(req, res, next);
 });
 
-const update = catchAsync(async (req, res) => {
+const update = catchAsync(async (req, res, next) => {
   await assertCertifiedWithinParticipants(req.params.id, req.body);
-  return base.update(req, res);
+  return base.update(req, res, next);
 });
 
 /** GET /short-courses/summary - quick dashboard aggregate by status */
