@@ -2,6 +2,7 @@
 -- RWANDA POLYTECHNIC - KIGALI COLLEGE
 -- Short Courses & Partner/Donor Projects Registry — MySQL 8.0 Schema
 -- =====================================================================
+-- Works on MySQL 8 and MariaDB 10.4+ (XAMPP): views use MAX() instead of the MySQL-only ANY_VALUE().
 -- Source data modeled from:
 --   1. short_courses_1.xlsx   (Short Courses Registry)
 --   2. projects_principal.xlsx (Partner / Donor Projects Registry)
@@ -421,10 +422,10 @@ CREATE OR REPLACE VIEW v_projects_full AS
 SELECT
     p.project_id,
     p.project_title,
-    ANY_VALUE(dn.donor_name)     AS donor_name,
-    ANY_VALUE(ft.type_name)      AS funding_type,
-    ANY_VALUE(sec.sector_name)   AS sector_name,
-    ANY_VALUE(st.full_name)      AS coordinator_name,
+    MAX(dn.donor_name)     AS donor_name,
+    MAX(ft.type_name)      AS funding_type,
+    MAX(sec.sector_name)   AS sector_name,
+    MAX(st.full_name)      AS coordinator_name,
     p.start_date,
     p.end_date,
     p.duration_months,
@@ -433,13 +434,13 @@ SELECT
     p.college_contribution_rwf,
     p.donor_contribution_usd,
     p.geographic_scope,
-    ANY_VALUE(bt.type_name)      AS beneficiary_type,
+    MAX(bt.type_name)      AS beneficiary_type,
     p.no_direct_beneficiaries,
     p.key_performance_indicator,
     p.achievement_rate_pct,
     p.remarks,
     p.overall_status,
-    ANY_VALUE(ay.year_label)     AS academic_year,
+    MAX(ay.year_label)     AS academic_year,
     GROUP_CONCAT(DISTINCT dep.department_name ORDER BY dep.department_name SEPARATOR ', ') AS target_departments,
     GROUP_CONCAT(DISTINCT po.partner_name ORDER BY po.partner_name SEPARATOR ', ')          AS partner_organisations
 FROM projects p

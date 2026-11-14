@@ -21,6 +21,7 @@ tags:
   - name: Audit Log
   - name: Services
   - name: Reviews
+  - name: Forms
   - name: Uploads
 
 components:
@@ -747,6 +748,67 @@ paths:
                 comment: { type: string, maxLength: 1000, nullable: true }
                 reviewer_name: { type: string, maxLength: 100, nullable: true }
       responses: { '201': { description: Created }, '400': { description: Service not offered by the staff member }, '422': { description: Validation failed }, '429': { description: Too many requests } }
+
+  # =================================================================
+  # DYNAMIC APPLICATION FORMS
+  # =================================================================
+  /forms/templates:
+    get: { tags: [Forms], summary: List ready-made form templates, responses: { '200': { description: OK } } }
+  /forms:
+    get:
+      tags: [Forms]
+      summary: "List forms with state (draft/open/scheduled/expired/closed), course title and response counts"
+      parameters:
+        - { name: short_course_id, in: query, schema: { type: integer }, description: "Only the form of this short course" }
+      responses: { '200': { description: OK } }
+    post:
+      tags: [Forms]
+      summary: "Create the application form of a short course: short_course_id is required, plus a full definition or {template: code}. One form per course (409)"
+      responses: { '201': { description: Created } }
+  /forms/{id}:
+    get: { tags: [Forms], parameters: [ { $ref: '#/components/parameters/idParam' } ], responses: { '200': { description: Form with sections and questions } } }
+    put: { tags: [Forms], summary: "Save the whole definition (existing section/question ids are kept)", parameters: [ { $ref: '#/components/parameters/idParam' } ], responses: { '200': { description: Saved } } }
+    delete: { tags: [Forms], summary: "Delete (409 when the form has responses)", parameters: [ { $ref: '#/components/parameters/idParam' } ], responses: { '200': { description: Deleted } } }
+  /forms/{id}/publish:
+    post: { tags: [Forms], parameters: [ { $ref: '#/components/parameters/idParam' } ], responses: { '200': { description: Published }, '400': { description: Nothing to publish or expiry already passed } } }
+  /forms/{id}/close:
+    post: { tags: [Forms], parameters: [ { $ref: '#/components/parameters/idParam' } ], responses: { '200': { description: Closed } } }
+  /forms/{id}/unpublish:
+    post: { tags: [Forms], summary: Move back to draft, parameters: [ { $ref: '#/components/parameters/idParam' } ], responses: { '200': { description: Draft } } }
+  /forms/{id}/responses:
+    get:
+      tags: [Forms]
+      parameters:
+        - $ref: '#/components/parameters/idParam'
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+        - { name: limit, in: query, schema: { type: integer, maximum: 5000 } }
+      responses: { '200': { description: Responses with answers keyed by question id } }
+  /forms/{id}/responses/{responseId}:
+    delete: { tags: [Forms], parameters: [ { $ref: '#/components/parameters/idParam' }, { name: responseId, in: path, required: true, schema: { type: integer } } ], responses: { '200': { description: Deleted } } }
+  /public/forms/{slug}:
+    get:
+      tags: [Forms]
+      summary: "PUBLIC (no auth): the form to fill in; questions only while it is open"
+      security: []
+      parameters: [ { name: slug, in: path, required: true, schema: { type: string } } ]
+      responses: { '200': { description: OK }, '404': { description: Not available } }
+  /public/forms/{slug}/responses:
+    post:
+      tags: [Forms]
+      summary: "PUBLIC (no auth): submit an application. Rate limited"
+      security: []
+      parameters: [ { name: slug, in: path, required: true, schema: { type: string } } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [answers]
+              properties:
+                answers: { type: object, description: "Values keyed by question id (string, array for checkboxes, true for consent)" }
+      responses: { '201': { description: Submitted }, '403': { description: Form not open }, '409': { description: Email already applied }, '422': { description: Validation failed } }
 
   # =================================================================
   # UPLOADS

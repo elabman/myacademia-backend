@@ -202,3 +202,92 @@ There is no email or "forgot password" flow, and the former `/auth/forgot-passwo
 endpoints were removed (the first returned the reset token in its response outside production). The
 `password_resets` table is left in the schema but is no longer used.
 
+## 12. Dynamic application forms (Google-Forms-style builder)
+
+Every form belongs to **one short course**: staff manage it from the short course (the "Form" button on each row of
+the Short Courses table), and only the applicant link is public. Administrators build the form (sections and questions),
+publish it, optionally set when it opens and expires, and share the public link. Applicants fill it in without logging
+in; their answers appear under that short course for internal use only.
+
+```bash
+npm run db:init-forms   # adds the form tables, or links an older forms table to short courses (safe to re-run)
+```
+
+**Question types:** `short_text`, `paragraph`, `multiple_choice`, `checkboxes`, `dropdown`, `yes_no`,
+`email`, `phone`, `number`, `date`, `consent` (a required declaration checkbox).
+
+**Form states** (computed): `draft`, `open`, `scheduled` (before `opens_at`), `expired` (after `closes_at`),
+`closed` (closed by an admin). Only `open` forms accept responses. `opens_at`/`closes_at` are stored in UTC.
+
+**Template:** the ready-made "Graphic Design for Packaging Training Programme" application (Sections A-F, 31 questions)
+lives in `data/formTemplates.js` and is offered when creating a course's form; add more templates there.
+
+| Endpoint | Auth | Notes |
+|---|---|---|
+| `GET /forms/templates` | Principal, CDSM, Administrator | Ready-made forms. |
+| `GET /forms?short_course_id=ID` | Principal, CDSM, Administrator | Forms with state, applicant counts and the course title; the filter returns a course's form. |
+| `GET /forms/:id` | Principal, CDSM, Administrator | Full structure. |
+| `POST /forms` | CDSM, Administrator | **`short_course_id` is required.** Body: a full definition, or `{ "short_course_id": 6, "template": "graphic-design-packaging", "title"? }`. A short course can have only one form (409). |
+| `PUT /forms/:id` | CDSM, Administrator | Replaces sections/questions; ids of existing ones are kept so collected answers survive edits. The course cannot be changed. |
+| `POST /forms/:id/publish`, `/close`, `/unpublish` | CDSM, Administrator | Publishing needs at least one question, an Email question when "one application per email" is on, and an expiry in the future. |
+| `DELETE /forms/:id` | CDSM, Administrator | Blocked (409) once the form has responses; close it instead. |
+| `GET /forms/:id/responses` | Principal, CDSM, Administrator | Filters: `from`, `to` (dates), `limit` (max 5000). |
+| `DELETE /forms/:id/responses/:responseId` | CDSM, Administrator | |
+| `GET /public/forms/:slug` | none | Includes the course title. Questions are only sent while the form is open; otherwise `state` and a message. Drafts return 404. |
+| `POST /public/forms/:slug/responses` | none | `{ "answers": { "<questionId>": value } }`. Validates required answers and each type; with "one application per email" a repeat email (any letter case) is rejected with 409. Rate limited. |
+
+A short course that has a form cannot be deleted (the database refuses, since the applicants' data would be lost).
+The frontend shows the public form at `/apply/<slug>`. There is no confirmation email: the applicant sees the
+form's confirmation message on screen.
+
+## 13. Running locally (Mac with XAMPP)
+
+XAMPP's MySQL is MariaDB 10.4, which the schema files support (the project views use `MAX()` instead of the
+MySQL-only `ANY_VALUE()`).
+
+1. Start **MySQL** from the XAMPP control panel (port 3306, user `root`, empty password).
+2. Copy `.env.example` to `.env` and set at least `PORT=4000` (macOS AirPlay uses 5000 and 7000), `CLIENT_URL=http://localhost:5173`,
+   `DB_NAME=db_myacademia` and your own `JWT_SECRET` / `JWT_REFRESH_SECRET`.
+3. **New, empty database:** `npm run db:rebuild` (runs `db:init --force`, `db:init-mou`, `db:init-reviews` and `db:init-forms` in order).
+   **Existing database (keep its data):** `npm run db:migrate`. It only adds what is missing and compares row counts before and after.
+   `npm run db:init` refuses to run on a database that already has tables, because `schema.sql` begins with
+   `DROP DATABASE` (everything deleted); `db:rebuild` is the deliberate wipe-and-rebuild and also resets every password,
+   so run step 4 again afterwards.
+4. The sample users have a placeholder password hash, so nobody can log in until you set one:
+   `npm run user:set-password -- admin@rp.ac.rw 'YourPassw0rd'`
+5. `npm run dev` starts the API on the port from `.env`. In the web app folder run `npm run dev` (Vite proxies `/api` to
+   `http://localhost:4000`; set `API_PROXY_TARGET` to use another port). Put `VITE_API_BASE_URL=/api/v1` in the web app's
+   `.env.local` so local runs do not call the production server.
+
+If XAMPP's MariaDB says "Column count of mysql.proc is wrong", its system tables are old: run
+`/Applications/XAMPP/xamppfiles/bin/mysql_upgrade -u root` (the app itself does not need it).
+
+## 14. Deploying an update to production (without losing data)
+
+Never run `db:init` or `db:rebuild` on production: they delete the database. (`db:init` stops by itself when the database already has tables, and
+even with `--force` it will not drop a database when `NODE_ENV=production`.) To update the data structure use `db:migrate`,
+which only creates missing tables, columns and views. In this order, on the server:
+
+1. **Back up first** (use your MySQL user; it asks for the password):
+   ```bash
+   mysqldump -u <user> -p --single-transaction --no-tablespaces db_myacademia > ~/db_myacademia-$(date +%F).sql
+   ls -lh ~/db_myacademia-*.sql
+   ```
+2. **Get the new code and packages:**
+   ```bash
+   git pull origin main && npm install
+   ```
+3. **Preview, then apply the migration** (the old code keeps working with the extra tables, so migrate before restarting):
+   ```bash
+   npm run db:migrate -- --dry-run
+   npm run db:migrate
+   ```
+   It ends with `OK: no existing rows were lost`. If it prints a WARNING or fails, stop and restore the backup (below).
+4. **Restart the backend** (for example `pm2 restart all` or `sudo systemctl restart <service>`), then build and copy the frontend.
+5. **Check:** log in, open Short Courses and the application form button of a course.
+
+**Restore the backup** if something went wrong (this replaces the tables with the backup's contents):
+```bash
+mysql -u <user> -p db_myacademia < ~/db_myacademia-YYYY-MM-DD.sql
+```
+

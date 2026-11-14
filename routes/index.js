@@ -11,6 +11,8 @@ const uploadRoutes = require('./uploadRoutes');
 const serviceRoutes = require('./serviceRoutes');
 const reviewRoutes = require('./reviewRoutes');
 const publicReviewRoutes = require('./publicReviewRoutes');
+const formRoutes = require('./formRoutes');
+const publicFormRoutes = require('./publicFormRoutes');
 
 const router = express.Router();
 
@@ -23,6 +25,9 @@ router.use('/services', serviceRoutes);
 router.use('/reviews', reviewRoutes);
 // Public (no auth) - mobile review page reached by scanning a staff Data Matrix
 router.use('/public/reviews', publicReviewRoutes);
+// Dynamic application forms: admin builder + public form reached from the shared link
+router.use('/forms', formRoutes);
+router.use('/public/forms', publicFormRoutes);
 
 // ---------------------------------------------------------------
 // Lookup / reference tables - writable by Administrator & CDSM only
@@ -42,6 +47,12 @@ lookupTables.forEach((name) => {
     buildEntityRouter(entities[name], { writeRoles: lookupWriteRoles })
   );
 });
+
+// The web app calls partner organisations "partners" (Partners page, MoU and project forms).
+router.use(
+  '/partners',
+  buildEntityRouter(entities.partner_organisations, { writeRoles: lookupWriteRoles })
+);
 
 // ---------------------------------------------------------------
 // Access control tables

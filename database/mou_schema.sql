@@ -36,7 +36,7 @@
 --   mysql -u root -p db_myacademia < database/mou_schema.sql
 -- =====================================================================
 
-USE db_myacademia;
+-- (no USE statement: run it against the database you selected, e.g. npm run db:init-mou)
 
 SET FOREIGN_KEY_CHECKS = 0;
 

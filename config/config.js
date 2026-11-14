@@ -39,6 +39,16 @@ const config = {
     max: parseInt(process.env.AUTH_RATE_LIMIT_MAX, 10) || 10,
   },
 
+  // Outgoing email (SMTP). Leave SMTP_HOST empty to keep email switched off.
+  mail: {
+    host: (process.env.SMTP_HOST || '').trim(),
+    port: parseInt(process.env.SMTP_PORT, 10) || 587,
+    secure: process.env.SMTP_SECURE === 'true', // true for port 465, false for 587 (STARTTLS)
+    user: (process.env.SMTP_USER || '').trim(),
+    pass: process.env.SMTP_PASS || '',
+    from: (process.env.MAIL_FROM || process.env.SMTP_USER || '').trim(),
+  },
+
   upload: {
     dir: process.env.UPLOAD_DIR || 'uploads',
     maxMb: parseInt(process.env.MAX_UPLOAD_MB, 10) || 5,
