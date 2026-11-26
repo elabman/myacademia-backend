@@ -100,6 +100,16 @@ const submit = catchAsync(async (req, res) => {
     throw ApiError.badRequest('This service is not offered by this staff member.');
   }
 
+  const serviceName = offered[0].name;
+  let comment = cleanText(req.body.comment);
+  if (serviceName === 'Other') {
+    const otherServiceName = cleanText(req.body.other_service_name);
+    if (!otherServiceName) {
+      throw ApiError.unprocessable('Enter the name of the service you received.');
+    }
+    comment = [`Service: ${otherServiceName}`, comment].filter(Boolean).join('\n\n');
+  }
+
   const result = await query(
     `INSERT INTO reviews (staff_id, service_id, rating, comment, reviewer_name, client_hash)
      VALUES (?, ?, ?, ?, ?, ?)`,
@@ -107,7 +117,7 @@ const submit = catchAsync(async (req, res) => {
       staffId,
       serviceId,
       rating,
-      cleanText(req.body.comment),
+      comment,
       cleanText(req.body.reviewer_name),
       crypto.createHash('sha256').update(String(req.ip)).digest('hex'),
     ]
@@ -120,9 +130,8 @@ const submit = catchAsync(async (req, res) => {
   });
 
   notifyReview({
-    reviewId: result.insertId,
     staffName: staff.full_name,
-    serviceName: offered[0].name,
+    serviceName,
     rating,
   }).catch((error) => {
     console.error('Review notification failed', { reviewId: result.insertId, code: error.code });

@@ -38,6 +38,11 @@ router.post(
   body('staff_id').isInt({ min: 1 }).withMessage('This review link is not valid.').toInt(),
   body('service_id').isInt({ min: 1 }).withMessage('Please choose a service.').toInt(),
   body('rating').isInt({ min: 1, max: 5 }).withMessage('Please choose a rating from 1 to 5.').toInt(),
+  body('other_service_name')
+    .optional()
+    .isString().withMessage('Enter the name of the service you received.').bail()
+    .trim()
+    .isLength({ max: 150 }).withMessage('The service name can be at most 150 characters.'),
   body('comment')
     .optional({ nullable: true, checkFalsy: true })
     .isString()

@@ -23,7 +23,7 @@ async function saveSettings({ recipient_email, enabled }) {
   return { recipient_email, enabled };
 }
 
-async function notifyReview({ reviewId, staffName, serviceName, rating }) {
+async function notifyReview({ staffName, serviceName, rating }) {
   const settings = await getSettings();
   if (!settings.enabled) return;
 
@@ -33,7 +33,6 @@ async function notifyReview({ reviewId, staffName, serviceName, rating }) {
     text: [
       'A new service review was submitted in MyAcademia.',
       '',
-      `Review ID: ${reviewId}`,
       `Staff member: ${staffName}`,
       `Service: ${serviceName}`,
       `Rating: ${rating}/5`,
