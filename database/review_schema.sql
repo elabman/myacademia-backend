@@ -61,3 +61,11 @@ CREATE TABLE IF NOT EXISTS reviews (
     KEY idx_reviews_service (service_id),
     KEY idx_reviews_created (created_at)
 ) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS review_notification_settings (
+    id              TINYINT UNSIGNED PRIMARY KEY,
+    recipient_email VARCHAR(254) NOT NULL DEFAULT '',
+    enabled         BOOLEAN NOT NULL DEFAULT FALSE,
+    CONSTRAINT chk_review_notification_singleton CHECK (id = 1),
+    CONSTRAINT chk_review_notification_recipient CHECK (enabled = FALSE OR recipient_email <> '')
+) ENGINE=InnoDB;

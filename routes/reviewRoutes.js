@@ -1,4 +1,8 @@
 const express = require('express');
+const { body } = require('express-validator');
+const catchAsync = require('../utils/catchAsync');
+const { sendSuccess } = require('../utils/apiResponse');
+const { getSettings, saveSettings } = require('../services/reviewNotificationService');
 const controller = require('../controllers/reviewController');
 const { authenticate, authorize } = require('../middleware/auth');
 const validate = require('../middleware/validate');
@@ -7,8 +11,28 @@ const ROLES = require('../utils/roles');
 
 const router = express.Router();
 
-// Everyone except plain Coordinators may read submitted reviews. Reviews are
-// created only through POST /public/reviews, so there are no write routes here.
+const adminOnly = [authenticate, authorize(ROLES.ADMINISTRATOR)];
+
+router.get('/notification-settings', adminOnly, catchAsync(async (_req, res) => {
+  sendSuccess(res, { data: await getSettings() });
+}));
+
+router.put(
+  '/notification-settings',
+  adminOnly,
+  body('enabled').custom((value) => typeof value === 'boolean').withMessage('Choose whether notifications are enabled.'),
+  body('recipient_email')
+    .isString().withMessage('Enter a recipient email address.').bail().trim()
+    .if((value, { req }) => value !== '' || req.body.enabled === true)
+    .isLength({ max: 254 }).isEmail().withMessage('Enter a valid recipient email address.'),
+  validate,
+  catchAsync(async (req, res) => {
+    const { recipient_email, enabled } = req.body;
+    sendSuccess(res, { data: await saveSettings({ recipient_email, enabled }) });
+  })
+);
+
+// Everyone except plain Coordinators may read submitted reviews.
 const readRoles = [
   ROLES.PRINCIPAL,
   ROLES.DIRECTOR_OF_PLANNING,

@@ -24,7 +24,7 @@ async function run() {
 
   console.log('Running database/review_schema.sql...');
   await connection.query(sql);
-  console.log('Review tables (services, service_departments, reviews) are ready.');
+  console.log('Review tables and notification settings are ready.');
   await connection.end();
 }
 

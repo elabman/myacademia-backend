@@ -4,6 +4,7 @@ const createCrudController = require('./crudControllerFactory');
 const catchAsync = require('../utils/catchAsync');
 const ApiError = require('../utils/ApiError');
 const { query } = require('../config/database');
+const { notifyReview } = require('../services/reviewNotificationService');
 const { sendSuccess } = require('../utils/apiResponse');
 
 const entity = entities.reviews;
@@ -87,7 +88,11 @@ const submit = catchAsync(async (req, res) => {
   // The service must be offered by the staff member's department (stops forged requests).
   const offered = staff.department_id
     ? await query(
-        'SELECT 1 FROM service_departments WHERE service_id = ? AND department_id = ? LIMIT 1',
+        `SELECT sv.name
+         FROM service_departments sd
+         JOIN services sv ON sv.service_id = sd.service_id
+         WHERE sd.service_id = ? AND sd.department_id = ?
+         LIMIT 1`,
         [serviceId, staff.department_id]
       )
     : [];
@@ -112,6 +117,15 @@ const submit = catchAsync(async (req, res) => {
     statusCode: 201,
     message: 'Thank you! Your review has been saved.',
     data: { review_id: result.insertId },
+  });
+
+  notifyReview({
+    reviewId: result.insertId,
+    staffName: staff.full_name,
+    serviceName: offered[0].name,
+    rating,
+  }).catch((error) => {
+    console.error('Review notification failed', { reviewId: result.insertId, code: error.code });
   });
 });
 
